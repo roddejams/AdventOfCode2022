@@ -1,4 +1,5 @@
 import Data.List.Split
+import Data.List
 import System.IO
 
 main = do
@@ -6,7 +7,10 @@ main = do
     print $ calorieCount elves
 
 calorieCount :: String -> Int
-calorieCount counts = maximum $ map sum $ stringToIntArray counts
+calorieCount counts = sum $ top3 $ map sum $ stringToIntArray counts
+
+top3 :: (Ord a) => [a] -> [a]
+top3 list = take 3 $ sortBy (\ a b -> compare b a) list
 
 stringToIntArray :: String -> [[Int]]
 stringToIntArray input = map stringListToIntList $ map (splitOn "\n") (splitOn "\n\n" input)
