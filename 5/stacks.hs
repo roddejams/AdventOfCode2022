@@ -1,21 +1,22 @@
 import System.IO ()
 import Data.Char (isSpace)
+import Data.List.Split
 
 main = do
     stackString <- readFile "stacks.txt"
     let (supply, moves) = parseInput stackString
-    -- print supply
-    -- print $ head moves
+    print supply
+    print $ head moves
     print $ readMessage $ runMoves supply moves
 
 parseInput :: String -> (Supply, [Move])
 parseInput input = (stringsToSupply supplyStrings, map parseMove instructions)
-    where supplyStrings = take 8 inputLines
-          instructions = drop 10 inputLines
-          inputLines = lines input
+    where supplyStrings = lines $ head inputLines
+          instructions = lines $ last inputLines
+          inputLines = splitOn "\n\n" input
 
 readMessage :: Supply -> [Crate]
-readMessage supply = map (stackHead . stack) supply
+readMessage supply = map (head . stack) supply
 
 data Move = Move {count :: Int, sourceIndex :: Int, destinationIndex :: Int} deriving (Show)
 
@@ -25,12 +26,12 @@ parseMove input = Move (read $ splitInput !! 1) (read $ splitInput !! 3) (read $
 
 applyMoveToSupply :: Supply -> Move -> Supply
 applyMoveToSupply supply (Move 0 _ _) = supply
-applyMoveToSupply supply (Move count source destination) = pushCrateToStackAtIndex poppedCrate destination modifiedSupply
+applyMoveToSupply supply (Move count source destination) = pushCrateToStackAtIndex destination modifiedSupply poppedCrate
     where (poppedCrate, modifiedSupply) = popCrateFromSupplyAtIndex source recursedSupply
           recursedSupply = applyMoveToSupply supply (Move (count - 1) source destination) 
 
 applyMoveToSupplyKeepOrder :: Supply -> Move -> Supply
-applyMoveToSupplyKeepOrder supply (Move count source destination) = foldl (\x y -> pushCrateToStackAtIndex y destination x) modifiedSupply poppedCrates
+applyMoveToSupplyKeepOrder supply (Move count source destination) = foldl (pushCrateToStackAtIndex destination) modifiedSupply poppedCrates
     where (poppedCrates, modifiedSupply) = takeCratesFromSupplyAtIndex count source supply
           
 takeCratesFromSupplyAtIndex :: Int -> Int -> Supply -> ([Crate], Supply)
@@ -48,32 +49,22 @@ data IndexedStack = IndexedStack { index :: Int, stack :: Stack} deriving (Show)
 type Supply = [IndexedStack]
 
 stringsToSupply :: [String] -> Supply
-stringsToSupply (list:[]) = zipWith (IndexedStack) ([1..9]) (map (:[]) $ stringToCrateList list)
+stringsToSupply (list:indexes:[]) = zipWith (IndexedStack) (map (read) $ words indexes) (map (:[]) $ stringToCrateList list)
 stringsToSupply (list:rest) = zipWith (pushCrateToStack) (stringToCrateList list) (stringsToSupply rest)
 
-pushCrateToStackAtIndex :: Crate -> Int -> Supply -> Supply
-pushCrateToStackAtIndex newCrate i stacks = map (\x -> if (index x) == i then pushCrateToStack newCrate x else x) stacks
+pushCrateToStackAtIndex :: Int -> Supply -> Crate -> Supply
+pushCrateToStackAtIndex i stacks newCrate = map (\x -> if (index x) == i then pushCrateToStack newCrate x else x) stacks
 
 pushCrateToStack :: Crate -> IndexedStack -> IndexedStack
-pushCrateToStack newCrate (IndexedStack i stack) = IndexedStack i (newCrate:(stackWithoutEmpty stack))
+pushCrateToStack Empty stack = stack
+pushCrateToStack newCrate (IndexedStack i stack) = IndexedStack i (newCrate:stack)
 
 popCrateFromSupplyAtIndex :: Int -> Supply -> (Crate, Supply)
 popCrateFromSupplyAtIndex i supply = (crate, map (\x -> if (index x) == i then poppedStack else x) supply)
     where (crate, poppedStack) = popCrateFromStack (supply !! (i - 1))
 
 popCrateFromStack :: IndexedStack -> (Crate, IndexedStack)
-popCrateFromStack (IndexedStack i stack) = (stackHead stack, IndexedStack i $ stackTail stack)
-
-stackHead :: Stack -> Crate
-stackHead = head . stackWithoutEmpty
-
-stackTail :: Stack -> Stack
-stackTail = tail . stackWithoutEmpty
-
-stackWithoutEmpty :: Stack -> Stack
-stackWithoutEmpty [] = []
-stackWithoutEmpty (Empty:xs) = xs
-stackWithoutEmpty stack = stack
+popCrateFromStack (IndexedStack i stack) = (head stack, IndexedStack i $ tail stack)
 
 stringToCrateList :: String -> [Crate]
 stringToCrateList [] = []
