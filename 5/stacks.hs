@@ -1,6 +1,5 @@
 import System.IO ()
 import Data.Char (isSpace)
-import Data.List.Split
 
 main = do
     stackString <- readFile "stacks.txt"
@@ -13,37 +12,25 @@ readMessage :: Supply -> [Crate]
 readMessage supply = map (head . stack) supply
 
 runMoves :: Supply -> [Move] -> Supply
-runMoves supply moves = foldl applyMoveToSupplyKeepOrder supply moves
+runMoves supply moves = foldl applyMoveToSupply supply moves
 
 applyMoveToSupply :: Supply -> Move -> Supply
-applyMoveToSupply supply (Move 0 _ _) = supply
-applyMoveToSupply supply (Move count source destination) = pushCrateToStackAtIndex destination modifiedSupply poppedCrate
-    where (poppedCrate, modifiedSupply) = popCrateFromSupplyAtIndex source recursedSupply
-          recursedSupply = applyMoveToSupply supply (Move (count - 1) source destination) 
-
-applyMoveToSupplyKeepOrder :: Supply -> Move -> Supply
-applyMoveToSupplyKeepOrder supply (Move count source destination) = foldl (pushCrateToStackAtIndex destination) modifiedSupply poppedCrates
+applyMoveToSupply supply (Move count source destination) = foldl (pushCrateToStackAtIndex destination) modifiedSupply $ poppedCrates
     where (poppedCrates, modifiedSupply) = takeCratesFromSupplyAtIndex count source supply
-          
-takeCratesFromSupplyAtIndex :: Int -> Int -> Supply -> ([Crate], Supply)
-takeCratesFromSupplyAtIndex 0 index supply = ([], supply)
-takeCratesFromSupplyAtIndex count index supply = (crate:rest, finalSupply)
-    where (crate, finalSupply) = popCrateFromSupplyAtIndex index modifiedSupply
-          (rest, modifiedSupply) = takeCratesFromSupplyAtIndex (count - 1) index supply 
-
+       
 pushCrateToStackAtIndex :: Int -> Supply -> Crate -> Supply
 pushCrateToStackAtIndex i stacks newCrate = map (\x -> if (index x) == i then pushCrateToStack newCrate x else x) stacks
-
-popCrateFromSupplyAtIndex :: Int -> Supply -> (Crate, Supply)
-popCrateFromSupplyAtIndex i supply = (crate, map (\x -> if (index x) == i then poppedStack else x) supply)
-    where (crate, poppedStack) = popCrateFromStack (supply !! (i - 1))
+          
+takeCratesFromSupplyAtIndex :: Int -> Int -> Supply -> ([Crate], Supply)
+takeCratesFromSupplyAtIndex count i supply = (crates, map (\x -> if (index x) == i then poppedStack else x) supply)
+    where (crates, poppedStack) = takeCratesFromStack count (supply !! (i - 1))
 
 pushCrateToStack :: Crate -> IndexedStack -> IndexedStack
 pushCrateToStack Empty stack = stack
 pushCrateToStack newCrate (IndexedStack i stack) = IndexedStack i (newCrate:stack)
-
-popCrateFromStack :: IndexedStack -> (Crate, IndexedStack)
-popCrateFromStack (IndexedStack i stack) = (head stack, IndexedStack i $ tail stack)
+ 
+takeCratesFromStack :: Int -> IndexedStack -> ([Crate], IndexedStack)
+takeCratesFromStack count (IndexedStack i stack) = (take count stack, IndexedStack i $ drop count stack)
 
 -------------------------------------------------------------------------------------------------
 
@@ -55,10 +42,8 @@ data IndexedStack = IndexedStack { index :: Int, stack :: Stack} deriving (Show)
 type Supply = [IndexedStack]
 
 parseInput :: String -> (Supply, [Move])
-parseInput input = (stringsToSupply supplyStrings, map parseMove instructions)
-    where supplyStrings = lines $ head inputLines
-          instructions = lines $ last inputLines
-          inputLines = splitOn "\n\n" input
+parseInput input = (stringsToSupply supplyStrings, map parseMove $ filter (any $ not . isSpace) instructions)
+    where (supplyStrings, instructions) = span (any $ not . isSpace) $ lines input
 
 parseMove :: String -> Move
 parseMove input = Move (read $ splitInput !! 1) (read $ splitInput !! 3) (read $ splitInput !! 5)
