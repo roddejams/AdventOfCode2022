@@ -4,7 +4,7 @@ import Data.List (isPrefixOf, find)
 main = do
     fileCommands <- readFile "commands.txt"
     let fileSystem = parseFileSystem fileCommands
-    print $ minimum $ map snd $ largeEnoughDirectories (sizeRequiredToDelete fileSystem) fileSystem
+    print $ minimum $ map snd $ searchDirectories (> (sizeRequiredToDelete fileSystem)) fileSystem
 
 sizeRequiredToDelete :: FileSystem -> Int
 sizeRequiredToDelete s = 30000000 - unusedSpace s
@@ -12,23 +12,14 @@ sizeRequiredToDelete s = 30000000 - unusedSpace s
 unusedSpace :: FileSystem -> Int
 unusedSpace s = 70000000 - directorySize s
 
-largeEnoughDirectories :: Int -> FileSystem -> [(String, Int)] 
-largeEnoughDirectories limit Empty = []
-largeEnoughDirectories limit (File _ _) = []
-largeEnoughDirectories limit (Directory name content)
-    | size > limit = (name, size) : limitedSizeChildren
+searchDirectories :: (Int -> Bool) -> FileSystem -> [(String, Int)] 
+searchDirectories search Empty = []
+searchDirectories search (File _ _) = []
+searchDirectories search (Directory name content)
+    | search size = (name, size) : limitedSizeChildren
     | otherwise = limitedSizeChildren
         where size = directorySize (Directory name content)
-              limitedSizeChildren = concat $ map (largeEnoughDirectories limit) content
-
-limitedSizeDirectories :: Int -> FileSystem -> [(String, Int)] 
-limitedSizeDirectories limit Empty = []
-limitedSizeDirectories limit (File _ _) = []
-limitedSizeDirectories limit (Directory name content)
-    | size < limit = (name, size) : limitedSizeChildren
-    | otherwise = limitedSizeChildren
-        where size = directorySize (Directory name content)
-              limitedSizeChildren = concat $ map (limitedSizeDirectories limit) content
+              limitedSizeChildren = concat $ map (searchDirectories search) content
 
 directorySize :: FileSystem -> Int
 directorySize Empty = 0
