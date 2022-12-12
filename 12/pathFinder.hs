@@ -4,25 +4,17 @@ import Data.List (minimumBy)
 import qualified Data.Map as Map
 
 main = do
-    map <- readFile "map.txt"
-    let grid = parseInput map
+    input <- readFile "map.txt"
+    let grid = parseInput input
     let startPoint = getStart grid
     let startPoints = getPossibleStartPoints grid
+    
+    let shortestFromAnyStart = minimum $ map (getDestination . run grid) startPoints
+    
     let result = run grid startPoint
-    let points = Map.elems result
-    
-    -- print $ filter (\point -> y point == 1) (points)
-    -- print ""
-    -- print $ filter (\point -> y point == 2) (points)
-    -- print ""
-    -- print $ filter (\point -> y point == 3) (points)
-    -- print ""
-    -- print $ filter (\point -> y point == 4) (points)
-    -- print ""
-    -- print $ filter (\point -> y point == 5) (points)
-    
     let destination = getDestination result
     print destination
+    print startPoints
 
 
 
