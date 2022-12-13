@@ -6,17 +6,18 @@ import qualified Data.Map as Map
 main = do
     input <- readFile "map.txt"
     let grid = parseInput input
-    let startPoint = getStart grid
-    let startPoints = getPossibleStartPoints grid
+    --let startPoint = getStart grid
     
-    let shortestFromAnyStart = minimum $ map (getDestination . run grid) startPoints
+    let destination = getDestination grid
+    let updatedGrid = Map.adjust (visitStartPoint) (x destination, y destination) grid
+    let foo = visitStartPoint destination
     
-    let result = run grid startPoint
-    let destination = getDestination result
-    print destination
-    print startPoints
-
-
+    let resultFromDestination = run updatedGrid foo
+    
+    print resultFromDestination
+    let possibleStarts = getPossibleStartPoints resultFromDestination
+    
+    print $ minimum $ filter (\p -> distance p > 0) possibleStarts
 
 getPossibleStartPoints :: Grid -> [Point]
 getPossibleStartPoints grid = filter (\p -> isStart p || height p == 'a') $ Map.elems grid
@@ -24,16 +25,15 @@ getPossibleStartPoints grid = filter (\p -> isStart p || height p == 'a') $ Map.
 run :: Grid -> Point -> Grid
 run grid startPoint
     | finished grid = grid
-    | otherwise = run otherGrid nextPoint
+    | otherwise = run visitedGrid nextPoint
         where 
-            (nextPoint, otherGrid) = getNextPoint visitedGrid
-            visitedGrid = foldl (checkVertex $ distance startPoint) grid $ getAvailableVertexes grid startPoint
+            nextPoint = getNextPoint visitedGrid
+            visitedGrid = foldl (checkVertex $ distance $ visitedStartPoint) updatedGrid $ getAvailableVertexes updatedGrid visitedStartPoint
+            visitedStartPoint = visitPoint startPoint
+            updatedGrid = Map.adjust (visitPoint) (x startPoint, y startPoint) grid
 
-getNextPoint :: Grid -> (Point, Grid)
-getNextPoint grid = (visitPoint visitedPoint, updatedGrid)
-    where 
-        updatedGrid = Map.adjust (visitPoint) (x visitedPoint, y visitedPoint) grid
-        visitedPoint = minimum $ filter (not . visited) $ Map.elems grid
+getNextPoint :: Grid -> Point
+getNextPoint grid = minimum $ filter (not . visited) $ Map.elems grid
 
 updatePointDistance :: Int -> Point -> Point
 updatePointDistance sourceDistance (Point x y h existingDistance v)
@@ -43,12 +43,15 @@ updatePointDistance sourceDistance (Point x y h existingDistance v)
 visitPoint :: Point -> Point
 visitPoint (Point x y h d v) = (Point x y h d True)
 
+visitStartPoint :: Point -> Point
+visitStartPoint (Point x y h d v) = (Point x y h 0 True)
+
 checkVertex :: Int -> Grid -> Maybe Point -> Grid
 checkVertex _ grid Nothing = grid 
 checkVertex sourceDistance grid (Just (Point x y h _ v)) = Map.adjust (updatePointDistance sourceDistance) (x, y) grid
 
 getAvailableVertexes :: Grid -> Point -> [Maybe Point]
-getAvailableVertexes grid source = filter (canMove source) ([pointAt (x+1) y grid, pointAt x (y+1) grid, pointAt (x-1) y grid, pointAt x (y-1) grid])
+getAvailableVertexes grid source = filter (\d -> canMove d (Just source)) ([pointAt (x+1) y grid, pointAt x (y+1) grid, pointAt (x-1) y grid, pointAt x (y-1) grid])
     where (Point x y _ _ _) = source
 
 finished :: Grid -> Bool
@@ -66,10 +69,11 @@ isStart point = height point == 'S'
 isDestination :: Point -> Bool
 isDestination point = height point == 'E'
 
-canMove :: Point -> Maybe Point -> Bool
+canMove :: Maybe Point -> Maybe Point -> Bool
 canMove _ Nothing = False
-canMove source (Just destination)
-    | visited destination = False
+canMove Nothing _ = False
+canMove (Just source) (Just destination)
+    | visited source = False
     | isStart source = height destination == 'a' || height destination == 'b'
     | isDestination destination = height source == 'z' || height source == 'y'
     | (ord $ height destination) < (ord $ height source) = True -- Can go down as much as we like
@@ -88,7 +92,7 @@ parseInput :: String -> Grid
 parseInput input = foldl (\m (x, c) -> parseLine m c x) Map.empty $ zip ([1..]) $ lines input
 
 parseLine :: Grid -> String -> Int -> Grid
-parseLine grid line yIndex = foldl (\m (x,c) -> Map.insert (x, yIndex) (Point x yIndex c (if c == 'S' then 0 else maxBound) (c == 'S')) m) grid $ zip ([1..]) line
+parseLine grid line yIndex = foldl (\m (x,c) -> Map.insert (x, yIndex) (Point x yIndex c maxBound False) m) grid $ zip ([1..]) line
 
 removeMaybe :: Maybe a -> a
 removeMaybe Nothing = error "sad"
